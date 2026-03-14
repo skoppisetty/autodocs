@@ -20,6 +20,7 @@ export interface AutodocsConfig {
   theme: Theme;
   title?: string;
   github?: { user: string; repo: string; branch?: string };
+  sections?: string[];
   instructions?: string;
 }
 

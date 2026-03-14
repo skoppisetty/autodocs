@@ -18,9 +18,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
-    "preversion": "node bin/autodocs.mjs generate --force && npm run build",
+    "preversion": "node bin/autodocs.mjs generate && npm run build",
     "version": "git add docs/ dist/",
-    "postversion": "node bin/autodocs.mjs build && npx vercel deploy .autodocs --prod && git push origin main --tags"
+    "postversion": "node bin/autodocs.mjs build && (npx vercel deploy .autodocs --prod || true) && git push origin main --tags"
   },
   "engines": {
     "node": ">=18.0.0"

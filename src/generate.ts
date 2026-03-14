@@ -123,6 +123,12 @@ export async function generate(opts: GenerateOptions = {}): Promise<void> {
   const outputDir = path.resolve(cwd, config.output);
   fs.mkdirSync(outputDir, { recursive: true });
 
+  if (config.sections) {
+    for (const dir of config.sections) {
+      fs.mkdirSync(path.join(outputDir, dir), { recursive: true });
+    }
+  }
+
   const binaryPath = findCliAgentsBinary();
   const skill = buildSkillPrompt(cwd);
 
@@ -154,6 +160,7 @@ export async function generate(opts: GenerateOptions = {}): Promise<void> {
     `Output directory: ${config.output}/`,
     `Include patterns: ${config.include.join(', ')}`,
     `Exclude patterns: ${config.exclude.join(', ')}`,
+    config.sections ? `Pre-created sections: ${config.sections.join(', ')} (these directories already exist, you can write directly into them)` : '',
     config.instructions ? `Additional instructions: ${config.instructions}` : '',
   ].filter(Boolean).join('\n');
 
