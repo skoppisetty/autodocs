@@ -1,0 +1,47 @@
+{
+  "name": "@cueframe/autodocs",
+  "version": "0.1.0",
+  "description": "AI-powered documentation generator using local CLI tools — no API keys required",
+  "type": "module",
+  "bin": {
+    "autodocs": "./bin/autodocs.mjs"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "bin",
+    "skill",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@cueframe/cli-agents": "^0.2.0",
+    "commander": "^13.0.0",
+    "execa": "^9.6.1",
+    "ora": "^9.3.0",
+    "picomatch": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/picomatch": "^4.0.2",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "documentation",
+    "ai",
+    "autodocs",
+    "claude",
+    "codex",
+    "gemini",
+    "mdx"
+  ]
+}
