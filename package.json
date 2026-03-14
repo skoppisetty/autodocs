@@ -26,7 +26,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@cueframe/cli-agents": "^0.2.0",
+    "@cueframe/cli-agents": "^0.2.1",
     "commander": "^13.0.0",
     "execa": "^9.6.1",
     "ora": "^9.3.0",
