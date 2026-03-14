@@ -19,7 +19,7 @@
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
     "preversion": "node bin/autodocs.mjs generate && npm run build",
-    "version": "git add docs/ dist/",
+    "version": "git add docs/",
     "postversion": "node bin/autodocs.mjs build && (npx vercel deploy .autodocs --prod || true) && git push origin main --tags"
   },
   "engines": {
@@ -38,7 +38,10 @@
     "typescript": "^5.7.0"
   },
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/skoppisetty/autodocs.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skoppisetty/autodocs.git"
+  },
   "keywords": [
     "documentation",
     "ai",

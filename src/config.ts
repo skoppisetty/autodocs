@@ -29,6 +29,7 @@ const DEFAULT_CONFIG: AutodocsConfig = {
   include: ['src/**'],
   exclude: ['**/test*', '**/bench*', '**/target/**', '**/node_modules/**', '**/dist/**'],
   theme: 'black',
+  sections: ['guide', 'api'],
 };
 
 export function getConfigPath(cwd: string): string {

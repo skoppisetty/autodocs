@@ -37,11 +37,18 @@ This will:
 
 1. Verify Node.js >= 18 is installed
 2. Check that at least one AI CLI (`claude`, `codex`, or `gemini`) is available on your PATH
-3. Create `autodocs.config.json` with default settings
+3. Create `autodocs.config.json` with [default settings](/docs/guide/configuration)
 4. Create a `docs/` directory with a starter `index.mdx` and `meta.json`
 5. Add `.autodocs/` to your `.gitignore` (the build cache directory)
 
-If you already have a config file or `docs/index.mdx`, they won't be overwritten.
+If a config file or `docs/index.mdx` already exists, they won't be overwritten.
+
+Optionally, install `tree` for better codebase exploration during generation:
+
+```bash
+brew install tree    # macOS
+apt install tree     # Linux
+```
 
 ## Generate documentation
 
@@ -51,11 +58,21 @@ Run the `generate` command to have your AI CLI read your source code and produce
 npx autodocs generate
 ```
 
-The AI reads your source files (matching the `include`/`exclude` patterns in your config), then writes MDX files into the `docs/` directory.
+The AI reads your source files (matching the `include`/`exclude` glob patterns in your config), then writes MDX files into the `docs/` directory. Progress is streamed in real-time with a spinner showing which files are being read and written.
+
+### Incremental generation
+
+By default, autodocs computes SHA-256 hashes of all source file contents and compares them against a local cache at `.autodocs/cache/source-cache.json`. Only files whose content has actually changed trigger a regeneration. If nothing changed, generation is skipped entirely:
+
+```
+No source files changed since last generation. Use --force to regenerate.
+```
+
+On incremental runs, the AI receives a list of changed files and updates only the affected documentation pages.
 
 ### Force regeneration
 
-By default, autodocs tracks changes via git and only regenerates when source files have changed since the last run. To regenerate everything from scratch:
+To regenerate everything from scratch, ignoring the cache:
 
 ```bash
 npx autodocs generate --force
@@ -63,7 +80,7 @@ npx autodocs generate --force
 
 ### Choose a specific CLI
 
-If you have multiple AI CLIs installed, you can pick which one to use:
+If you have multiple AI CLIs installed, specify which one to use:
 
 ```bash
 npx autodocs generate --cli claude
@@ -79,14 +96,25 @@ Start a local dev server to preview your docs:
 npx autodocs dev
 ```
 
-This scaffolds a [Fumadocs](https://fumadocs.dev) app in `.autodocs/`, installs its dependencies (first run only), and starts Next.js at `http://localhost:3000`.
+This scaffolds a [Fumadocs](https://fumadocs.dev) Next.js app inside `.autodocs/`, installs its dependencies (first run only), and starts the dev server at `http://localhost:3000`.
 
 ## Build for deployment
 
-Build a static site for production:
+Build a production-ready site:
 
 ```bash
 npx autodocs build
 ```
 
-The output is placed in `.autodocs/.next/`. You can deploy this with any static hosting provider that supports Next.js.
+The output is placed in `.autodocs/.next/`. Deploy it with any hosting provider that supports Next.js (Vercel, Netlify, etc.).
+
+## CLI reference
+
+```
+autodocs init                         Create config and starter docs/
+autodocs generate                     Generate docs (incremental by default)
+autodocs generate --force             Regenerate all docs from scratch
+autodocs generate --cli <name>        Use a specific AI CLI (claude, codex, gemini)
+autodocs dev                          Start local preview at localhost:3000
+autodocs build                        Build static site for deployment
+```

@@ -77,7 +77,9 @@ The config specifies `Include patterns` and `Exclude patterns` using glob syntax
 
 ## Incremental Updates
 
-If the prompt tells you which files changed, only update documentation pages affected by those changes. Read the changed source files, determine which doc pages reference that code, and update only those pages. Leave unaffected pages alone.
+If the prompt tells you which files changed, only update documentation pages affected by those changes. Read the changed files to understand what changed, then update the relevant doc pages. Leave unaffected pages alone.
+
+The existing documentation pages (with titles) are listed in the prompt — use them to understand what's already documented and maintain consistency.
 
 ## Rules
 

@@ -17,6 +17,7 @@ Autodocs is configured via `autodocs.config.json` in your project root. Run `npx
   "exclude": ["**/test*", "**/node_modules/**", "**/dist/**"],
   "theme": "black",
   "title": "My Project",
+  "sections": ["guide", "api"],
   "github": {
     "user": "your-username",
     "repo": "your-repo"
@@ -32,22 +33,27 @@ Autodocs is configured via `autodocs.config.json` in your project root. Run `npx
 | `output` | `string` | `"docs"` | Directory where generated MDX files are written |
 | `include` | `string[]` | `["src/**"]` | Glob patterns for source files to document |
 | `exclude` | `string[]` | `["**/test*", "**/bench*", "**/target/**", "**/node_modules/**", "**/dist/**"]` | Glob patterns to skip |
-| `theme` | `string` | `"black"` | Fumadocs color theme |
+| `theme` | `string` | `"black"` | Fumadocs color theme (see [Themes](#themes)) |
 | `title` | `string` | `"Documentation"` | Site title shown in the nav bar and OG images |
-| `github` | `object` | — | GitHub repo for header link |
+| `sections` | `string[]` | `["guide", "api"]` | Subdirectories to pre-create in the output directory before generation |
+| `github` | `object` | — | GitHub repo for the header link (see [GitHub integration](#github-integration)) |
 | `instructions` | `string` | — | Additional instructions passed to the AI during generation |
 
 ## Themes
 
-Autodocs supports all Fumadocs built-in themes:
+Autodocs supports all 11 Fumadocs built-in themes:
 
 `black` · `neutral` · `vitepress` · `dusk` · `catppuccin` · `ocean` · `purple` · `solar` · `emerald` · `ruby` · `aspen`
 
-Set the `theme` field in your config to any of these values. The theme controls the color palette of the generated documentation site.
+Set the `theme` field in your config to any of these values. The theme controls the color palette of the generated documentation site. Invalid theme values will throw an error at config load time.
+
+The theme CSS is imported as `fumadocs-ui/css/<theme>.css` when the docs app is scaffolded for `dev` or `build`.
 
 ## Include and exclude patterns
 
-The `include` and `exclude` fields use [glob syntax](https://github.com/micromatch/picomatch) (powered by picomatch). The AI will only read and document source files that match `include` and don't match `exclude`.
+The `include` and `exclude` fields use [glob syntax](https://github.com/micromatch/picomatch) powered by picomatch. The AI will only read and document source files that match `include` and don't match `exclude`.
+
+Patterns are validated at config load time — invalid globs throw an error with a descriptive message.
 
 Common patterns:
 
@@ -57,6 +63,20 @@ Common patterns:
   "exclude": ["**/*.test.*", "**/__tests__/**", "**/node_modules/**"]
 }
 ```
+
+During file walking, directories named `.` (dotfiles), `node_modules`, `target`, and `dist` are always skipped, regardless of exclude patterns.
+
+## Sections
+
+The `sections` field pre-creates subdirectories in the output directory before the AI begins generating. This lets the AI write directly into organized sections without needing to create directories first:
+
+```json
+{
+  "sections": ["guide", "api", "examples"]
+}
+```
+
+These directories are created at the start of each `generate` run. The default value is `["guide", "api"]`.
 
 ## GitHub integration
 
@@ -72,14 +92,44 @@ When `github` is set, the docs site displays a GitHub link in the header:
 }
 ```
 
-The `branch` field defaults to `"main"` if omitted.
+The `branch` field defaults to `"main"` if omitted. The GitHub URL is generated as `https://github.com/{user}/{repo}`.
 
 ## Custom AI instructions
 
-The `instructions` field lets you give extra guidance to the AI when generating documentation. This is appended to the generation prompt:
+The `instructions` field lets you give extra guidance to the AI when generating documentation. This text is included in the generation prompt:
 
 ```json
 {
   "instructions": "Write docs in a tutorial style. Include runnable examples for every public function."
+}
+```
+
+## Custom skill prompt
+
+You can fully override the system prompt sent to the AI CLI by placing a file at `.autodocs/skill.md`. When this file exists, it is used instead of the built-in skill prompt (`skill/SKILL.md` shipped with the package). This gives you complete control over how the AI approaches documentation generation.
+
+## Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `AUTODOCS_CLI_AGENTS_PATH` | Override the path to the `cli-agents` binary. If set, this path is used directly instead of resolving via the npm package or system PATH. |
+
+## Default config
+
+When you run `npx autodocs init` without an existing config file, this is what gets created:
+
+```json
+{
+  "output": "docs",
+  "include": ["src/**"],
+  "exclude": [
+    "**/test*",
+    "**/bench*",
+    "**/target/**",
+    "**/node_modules/**",
+    "**/dist/**"
+  ],
+  "theme": "black",
+  "sections": ["guide", "api"]
 }
 ```

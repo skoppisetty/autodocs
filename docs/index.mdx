@@ -18,24 +18,27 @@ npx @cueframe/autodocs generate
 npx @cueframe/autodocs dev
 ```
 
-1. **`init`** — creates `autodocs.config.json` and a `docs/` directory
+Three commands to go from source code to a live documentation site:
+
+1. **`init`** — creates `autodocs.config.json` and a `docs/` directory with starter files
 2. **`generate`** — spawns your AI CLI to read source code and write MDX documentation
-3. **`dev`** — starts a local preview at `localhost:3000`
-4. **`build`** — builds the docs site for deployment
+3. **`dev`** — starts a local preview at `http://localhost:3000`
+4. **`build`** — builds the docs site for production deployment
 
 ## Features
 
-- **Incremental generation** — only regenerates docs when source files change (tracked via git)
+- **Incremental generation** — only regenerates docs when source file contents change (tracked via SHA-256 content hashing)
 - **Full-text search** — built-in search powered by Fumadocs
 - **Dark mode** — automatic light/dark theme switching
 - **OG images** — auto-generated social preview images for every page
 - **LLM routes** — `/llms.txt` and `/llms-full.txt` for AI consumption
-- **11 themes** — choose from Fumadocs built-in themes
+- **11 themes** — choose from Fumadocs built-in color themes
 - **Any AI CLI** — works with Claude Code, Codex, or Gemini CLI
+- **Programmable** — use as a library in your own build scripts via the [programmatic API](/docs/api)
 
 ## Prerequisites
 
-At least one AI CLI must be installed:
+Node.js 18 or later, plus at least one AI CLI:
 
 | CLI | Install |
 |-----|---------|
@@ -43,10 +46,9 @@ At least one AI CLI must be installed:
 | Codex | `npm install -g @openai/codex` |
 | Gemini CLI | `npm install -g @google/gemini-cli` |
 
-Node.js 18 or later is required.
-
 ## Next steps
 
 - [Getting started](/docs/guide/getting-started) — installation and first run
-- [Configuration](/docs/guide/configuration) — customize output, themes, and patterns
+- [Configuration](/docs/guide/configuration) — customize output, themes, and glob patterns
+- [How it works](/docs/guide/how-it-works) — architecture, change detection, and the rendering pipeline
 - [Programmatic API](/docs/api) — use autodocs as a library

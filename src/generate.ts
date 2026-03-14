@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import Module from 'node:module';
 import { spawnSync } from 'node:child_process';
@@ -14,7 +15,6 @@ export interface GenerateOptions {
 }
 
 const VALID_CLI_NAMES = new Set(['claude', 'codex', 'gemini']);
-const COMMIT_SHA_RE = /^[0-9a-f]{4,40}$/;
 
 const SUPPRESSED_ERRORS = [
   'Cancelled:',
@@ -58,7 +58,7 @@ function findCliAgentsBinary(): string {
     const { binaryPath } = require('@cueframe/cli-agents') as { binaryPath: () => string };
     return binaryPath();
   } catch {
-    // fallback to PATH for cargo-install users
+    // fallback to PATH
   }
 
   const which = spawnSync('which', ['cli-agents'], { encoding: 'utf-8' });
@@ -71,49 +71,86 @@ function findCliAgentsBinary(): string {
   );
 }
 
-const GIT_TIMEOUT_MS = Number(process.env.AUTODOCS_GIT_TIMEOUT_MS) || 30_000;
+// ── Cache helpers ──
 
-function gitSpawn(cwd: string, args: string[]): string | null {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf-8', timeout: GIT_TIMEOUT_MS });
-  if (result.status !== 0) return null;
-  return result.stdout.trim();
+const CACHE_SUBDIR = path.join(CACHE_DIR, 'cache');
+
+interface SourceCache {
+  hashes: Record<string, string>;
 }
 
-function getLastGenCommit(cwd: string): string | null {
-  const markerPath = path.join(cwd, CACHE_DIR, 'last-gen-commit');
-  if (!fs.existsSync(markerPath)) return null;
-  const value = fs.readFileSync(markerPath, 'utf-8').trim();
-  if (!COMMIT_SHA_RE.test(value)) return null;
-  return value;
-}
-
-function saveLastGenCommit(cwd: string): void {
-  const commit = gitSpawn(cwd, ['rev-parse', 'HEAD']);
-  if (!commit) return;
-  const dir = path.join(cwd, CACHE_DIR);
+function getCacheDir(cwd: string): string {
+  const dir = path.join(cwd, CACHE_SUBDIR);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'last-gen-commit'), commit + '\n');
+  return dir;
 }
 
-function getChangedFiles(cwd: string, sinceCommit: string, include: string[], exclude: string[]): string[] | null {
-  const committedRaw = gitSpawn(cwd, ['diff', '--name-only', sinceCommit, 'HEAD']);
-  const uncommittedRaw = gitSpawn(cwd, ['diff', '--name-only', 'HEAD']);
+function hashFile(filePath: string): string {
+  const content = fs.readFileSync(filePath);
+  return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+}
 
-  if (committedRaw === null && uncommittedRaw === null) return null;
+function hashSourceFiles(cwd: string, include: string[], exclude: string[]): Record<string, string> {
+  const isIncluded = picomatch(include);
+  const isExcluded = exclude.length > 0 ? picomatch(exclude) : () => false;
+  const hashes: Record<string, string> = {};
 
-  const allChanged = new Set<string>();
-  for (const raw of [committedRaw, uncommittedRaw]) {
-    if (raw) {
-      for (const line of raw.split('\n')) {
-        if (line) allChanged.add(line);
+  function walk(dir: string, rel: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (!entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== 'target' && entry.name !== 'dist') {
+          walk(fullPath, relPath);
+        }
+      } else if (isIncluded(relPath) && !isExcluded(relPath)) {
+        hashes[relPath] = hashFile(fullPath);
       }
     }
   }
 
-  const isIncluded = picomatch(include);
-  const isExcluded = exclude.length > 0 ? picomatch(exclude) : () => false;
+  walk(cwd, '');
+  return hashes;
+}
 
-  return [...allChanged].filter((file) => isIncluded(file) && !isExcluded(file));
+function loadSourceCache(cwd: string): SourceCache | null {
+  const cachePath = path.join(getCacheDir(cwd), 'source-cache.json');
+  if (!fs.existsSync(cachePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+function saveSourceCache(cwd: string, cache: SourceCache): void {
+  const cachePath = path.join(getCacheDir(cwd), 'source-cache.json');
+  fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+}
+
+function buildExistingDocsContext(outputDir: string): string {
+  const pages: string[] = [];
+
+  function walk(dir: string, rel: string) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(fullPath, relPath);
+      } else if (entry.name.endsWith('.mdx')) {
+        const content = fs.readFileSync(fullPath, 'utf-8');
+        const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        const frontmatter = frontmatterMatch ? frontmatterMatch[1] : '';
+        const isGenerated = frontmatter.includes('generated: true');
+        pages.push(`- ${relPath} (${isGenerated ? 'generated' : 'manual'}): ${frontmatter.match(/title: (.+)/)?.[1] || 'untitled'}`);
+      }
+    }
+  }
+
+  walk(outputDir, '');
+  if (pages.length === 0) return '';
+  return `Existing documentation pages:\n${pages.join('\n')}`;
 }
 
 export async function generate(opts: GenerateOptions = {}): Promise<void> {
@@ -132,30 +169,30 @@ export async function generate(opts: GenerateOptions = {}): Promise<void> {
   const binaryPath = findCliAgentsBinary();
   const skill = buildSkillPrompt(cwd);
 
-  let changeContext = '';
+  // ── Change detection via source hashing ──
+  const currentHashes = hashSourceFiles(cwd, config.include, config.exclude);
+  const cachedState = opts.force ? null : loadSourceCache(cwd);
+  let changedFiles: string[] | null = null;
   let isFullGeneration = true;
 
-  if (!opts.force) {
-    const lastCommit = getLastGenCommit(cwd);
-    if (lastCommit) {
-      const changed = getChangedFiles(cwd, lastCommit, config.include, config.exclude);
-      if (changed && changed.length === 0) {
-        console.log('No source files changed since last generation. Use --force to regenerate.');
-        return;
-      }
-      if (changed && changed.length > 0) {
-        isFullGeneration = false;
-        changeContext = [
-          `The following source files changed since the last documentation generation:`,
-          ...changed.map((f) => `  - ${f}`),
-          '',
-          'Only update documentation pages affected by these changes. Read the changed files to understand what changed, then update the relevant doc pages. Leave unaffected pages alone.',
-        ].join('\n');
-        console.log(`${changed.length} file(s) changed since last generation.\n`);
-      }
+  if (cachedState) {
+    changedFiles = Object.keys(currentHashes).filter(
+      (f) => currentHashes[f] !== cachedState.hashes[f],
+    );
+    const deletedFiles = Object.keys(cachedState.hashes).filter(
+      (f) => !(f in currentHashes),
+    );
+    if (deletedFiles.length > 0) changedFiles.push(...deletedFiles);
+
+    if (changedFiles.length === 0) {
+      console.log('No source files changed since last generation. Use --force to regenerate.');
+      return;
     }
+    isFullGeneration = false;
+    console.log(`${changedFiles.length} file(s) changed since last generation.\n`);
   }
 
+  // ── Build context sections ──
   const configSummary = [
     `Output directory: ${config.output}/`,
     `Include patterns: ${config.include.join(', ')}`,
@@ -163,6 +200,22 @@ export async function generate(opts: GenerateOptions = {}): Promise<void> {
     config.sections ? `Pre-created sections: ${config.sections.join(', ')} (these directories already exist, you can write directly into them)` : '',
     config.instructions ? `Additional instructions: ${config.instructions}` : '',
   ].filter(Boolean).join('\n');
+
+  const existingDocs = buildExistingDocsContext(outputDir);
+
+  let changeContext: string;
+  if (opts.force) {
+    changeContext = 'FORCE MODE: Regenerate ALL documentation from scratch. For existing files, Read them first (required by the Write tool), then overwrite with new content. Only read SOURCE code files for understanding — read doc files only to satisfy the Write tool requirement.';
+  } else if (changedFiles && !isFullGeneration) {
+    changeContext = [
+      `The following source files changed since the last documentation generation:`,
+      ...changedFiles.map((f) => `  - ${f}`),
+      '',
+      'Only update documentation pages affected by these changes. Read the changed files to understand what changed, then update the relevant doc pages. Leave unaffected pages alone.',
+    ].join('\n');
+  } else {
+    changeContext = 'Generate complete documentation for this project.';
+  }
 
   const task = [
     skill,
@@ -172,11 +225,13 @@ export async function generate(opts: GenerateOptions = {}): Promise<void> {
     `Project root: ${cwd}`,
     configSummary,
     '',
-    changeContext || (opts.force
-      ? 'FORCE MODE: Regenerate ALL documentation from scratch. Do NOT read existing doc files — just overwrite them. Ignore the `generated: true` check. Only read SOURCE code files.'
-      : 'Generate complete documentation for this project.'),
+    existingDocs,
     '',
-    'Now read the source code and generate the documentation.',
+    changeContext,
+    '',
+    isFullGeneration
+      ? 'Now read the source code and generate the documentation.'
+      : 'Now read the changed files and update the documentation.',
   ].filter(Boolean).join('\n');
 
   const appendPrompt = 'RULE: Before writing ANY file to a subdirectory, you MUST create the directory first with `mkdir -p <dir>`. The Write tool does NOT create parent directories and WILL fail if the directory does not exist. Always run mkdir -p before Write when the target directory might not exist.';
@@ -276,9 +331,7 @@ export async function generate(opts: GenerateOptions = {}): Promise<void> {
   const result = await subprocess;
 
   if (finalResult?.success || result.exitCode === 0) {
-    if (isFullGeneration) {
-      saveLastGenCommit(cwd);
-    }
+    saveSourceCache(cwd, { hashes: currentHashes });
     const parts = [`${writtenFiles.size} files`];
     if (finalResult?.stats?.duration_ms) parts.push(`${Math.round(finalResult.stats.duration_ms / 1000)}s`);
     if (finalResult?.costUsd) parts.push(`$${finalResult.costUsd.toFixed(2)}`);

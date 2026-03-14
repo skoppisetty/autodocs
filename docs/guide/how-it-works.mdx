@@ -6,55 +6,127 @@ generated: true
 
 # How It Works
 
-Autodocs orchestrates three layers: an AI CLI for code understanding, a generation pipeline for change tracking, and a Fumadocs app for rendering.
+Autodocs orchestrates three layers: an AI CLI for code understanding, a generation pipeline with content-hash-based change detection, and a Fumadocs app for rendering.
 
 ## Generation pipeline
 
 When you run `npx autodocs generate`, the following happens:
 
-1. **Load config** — reads `autodocs.config.json` and validates the glob patterns and theme
-2. **Detect changes** — checks `.autodocs/last-gen-commit` for the git SHA of the last generation run, then uses `git diff` to find source files that changed since then
-3. **Build the prompt** — assembles a skill prompt (from `.autodocs/skill.md` or the built-in `SKILL.md`) along with the project root, config summary, and change context
-4. **Invoke the AI CLI** — runs the prompt through [`cli-agents`](https://github.com/skoppisetty/cli-agents-rs), which provides a unified interface to Claude Code, Codex, or Gemini CLI
-5. **Stream progress** — parses JSON events from the subprocess (`thinking_delta`, `tool_start`, `tool_end`, `done`) and displays real-time progress with a spinner
-6. **Save checkpoint** — on success, writes the current `HEAD` commit SHA to `.autodocs/last-gen-commit`
+1. **Load config** — reads `autodocs.config.json`, merges with defaults, and validates glob patterns and theme
+2. **Pre-create sections** — creates configured `sections` subdirectories in the output directory (e.g., `docs/guide/`, `docs/api/`)
+3. **Resolve CLI agents** — locates the `cli-agents` binary (see [CLI agents](#cli-agents) below)
+4. **Load skill prompt** — reads `.autodocs/skill.md` if it exists, otherwise loads the built-in `SKILL.md` from the package's `skill/` directory
+5. **Hash source files** — walks the project tree, computes SHA-256 hashes (first 16 hex chars) of all files matching `include`/`exclude` patterns
+6. **Detect changes** — compares current hashes against the cache in `.autodocs/cache/source-cache.json`; if nothing changed and `--force` isn't set, exits early
+7. **Build the prompt** — assembles the skill prompt, project config summary, existing docs context, and change context into a single task string
+8. **Invoke the AI CLI** — spawns `cli-agents` with JSON streaming (`--json`, `--skip-permissions`) and streams the prompt
+9. **Stream progress** — parses newline-delimited JSON events and displays real-time progress with a spinner (via [ora](https://github.com/sindresorhus/ora))
+10. **Cache results** — on success, saves updated source hashes to `.autodocs/cache/source-cache.json`
 
-## Incremental updates
+## Change detection
 
-Autodocs tracks what has changed since the last generation by comparing git commits:
+Autodocs uses **content hashing** for change detection:
 
-- The SHA of `HEAD` at generation time is saved to `.autodocs/last-gen-commit`
-- On the next run, `git diff --name-only <saved-sha> HEAD` finds committed changes, and `git diff --name-only HEAD` finds uncommitted changes
-- Changed files are filtered through the `include`/`exclude` glob patterns
-- Only matching files are sent to the AI with instructions to update affected doc pages
+- Every source file matching `include`/`exclude` is hashed with SHA-256 (truncated to 16 hex characters)
+- Hashes are stored in `.autodocs/cache/source-cache.json`
+- On the next run, current hashes are compared to cached hashes — files with different hashes (new, modified, or deleted) are flagged as changed
+- The AI receives a list of changed files with instructions to update only affected doc pages
 
-If no source files have changed, generation is skipped entirely. Use `--force` to bypass this check.
+If no source files have changed, generation is skipped:
+
+```
+No source files changed since last generation. Use --force to regenerate.
+```
+
+The `--force` flag bypasses the cache entirely, triggering a full regeneration.
+
+### Existing docs awareness
+
+Before invoking the AI, autodocs scans the output directory for existing `.mdx` files. It builds a context string listing each page with its title and whether it has `generated: true` in its frontmatter (auto-generated) or not (manually edited). This lets the AI understand what's already documented and maintain consistency across incremental updates.
+
+### Source file walking
+
+The file walker skips directories that start with `.` (dotfiles), as well as `node_modules`, `target`, and `dist` directories — regardless of the configured `exclude` patterns. Within non-skipped directories, files are matched against `include` and `exclude` globs using [picomatch](https://github.com/micromatch/picomatch).
 
 ## The `.autodocs/` directory
 
-The `.autodocs/` directory (added to `.gitignore` by `init`) serves two purposes:
+The `.autodocs/` directory (added to `.gitignore` by `init`) serves multiple purposes:
 
-- **Build cache** — `last-gen-commit` tracks the git SHA for incremental generation
-- **Fumadocs app** — when you run `dev` or `build`, a full Fumadocs/Next.js app is scaffolded here from the built-in template
+| Path | Purpose |
+|------|---------|
+| `.autodocs/cache/source-cache.json` | Content hashes for change detection |
+| `.autodocs/skill.md` | Optional custom skill prompt override |
+| `.autodocs/` (root) | Fumadocs Next.js app scaffolded for `dev` and `build` |
 
-The scaffolding process:
+### Fumadocs scaffolding
 
-1. Copies the Fumadocs template from `templates/fumadocs/` in the autodocs package
-2. Copies your `docs/` MDX files into `.autodocs/content/docs/`
-3. Generates `app/global.css` with your selected theme
-4. Generates `lib/layout.shared.tsx` with your title and GitHub config
-5. Runs `npm install` if dependencies have changed, or `npx fumadocs-mdx` to regenerate the content layer
+When you run `dev` or `build`, autodocs scaffolds a full Fumadocs/Next.js app inside `.autodocs/`:
+
+1. **Copy template** — copies the Fumadocs template from `templates/fumadocs/` in the autodocs package into `.autodocs/`
+2. **Copy docs** — copies your `docs/` MDX files into `.autodocs/content/docs/`
+3. **Generate CSS** — writes `app/global.css` importing your selected theme:
+   ```css
+   @import 'tailwindcss';
+   @import 'fumadocs-ui/css/<theme>.css';
+   @import 'fumadocs-ui/css/preset.css';
+   ```
+4. **Generate layout config** — writes `lib/layout.shared.tsx` with your site title and GitHub config, exporting `siteName`, `gitConfig`, and `baseOptions()` for Fumadocs layouts
+5. **Install dependencies** — runs `npm install` if `package.json` is newer than `package-lock.json` (or `node_modules` is missing); otherwise runs `npx fumadocs-mdx` to regenerate the content layer
+
+The template directory is resolved from the autodocs package, searching both `../templates/fumadocs` and `../../templates/fumadocs` relative to the compiled source.
 
 ## CLI agents
 
-Autodocs uses the [`@cueframe/cli-agents`](https://github.com/skoppisetty/cli-agents-rs) package to invoke AI CLIs. This binary abstracts over the differences between Claude Code, Codex, and Gemini CLI, providing a unified JSON streaming interface.
+Autodocs uses [`@cueframe/cli-agents`](https://github.com/skoppisetty/cli-agents-rs) to invoke AI CLIs. This Rust binary abstracts over the differences between Claude Code, Codex, and Gemini CLI, providing a unified JSON streaming interface.
 
 The binary is resolved in this order:
 
-1. `AUTODOCS_CLI_AGENTS_PATH` environment variable (if set)
-2. The `@cueframe/cli-agents` npm package (`binaryPath()` export)
-3. `cli-agents` on the system PATH (for cargo-install users)
+1. `AUTODOCS_CLI_AGENTS_PATH` environment variable (if set, used directly)
+2. The `@cueframe/cli-agents` npm package — calls the `binaryPath()` export
+3. `cli-agents` on the system PATH (for `cargo install` users)
 
-## Customizing the skill prompt
+If none of these resolve, an error is thrown with installation instructions.
 
-The prompt sent to the AI CLI is called the "skill." By default, autodocs uses its built-in `SKILL.md`. You can override it by placing a custom file at `.autodocs/skill.md` — this will be used instead of the built-in version.
+The subprocess is managed by [execa](https://github.com/sindresorhus/execa) with `cancelSignal` for graceful cancellation. The following flags are always passed:
+
+| Flag | Purpose |
+|------|---------|
+| `--json` | Enable JSON streaming output |
+| `--skip-permissions` | Skip interactive permission prompts |
+| `--append-system-prompt` | Inject additional system instructions |
+| `--cwd` | Set the working directory for the AI CLI |
+
+When `--cli <name>` is specified, the corresponding `--cli` flag is prepended to the argument list.
+
+## Event streaming
+
+During generation, the AI subprocess emits newline-delimited JSON events. Autodocs parses these and displays progress in real-time:
+
+| Event type | Description |
+|-----------|-------------|
+| `thinking_delta` | AI reasoning text (displayed dimmed, flushed before tool events) |
+| `tool_start` | AI began using a tool — shows file paths for Read/Write/Edit, commands for Bash |
+| `tool_end` | Tool completed — non-suppressed errors are displayed |
+| `error` | An error occurred during generation |
+| `done` | Generation complete — includes success status, duration, and cost |
+
+Written files are tracked and displayed with a green checkmark. Each file path is shown only once, even if written multiple times.
+
+### Suppressed errors
+
+Certain error patterns are suppressed to reduce noise during generation:
+
+- `"Cancelled:"` — user cancellation
+- `"does not exist"` — file not found (common during exploration)
+- `"ENOENT"` — file system errors
+- `"has not been read yet"` — Write tool prerequisite warnings
+
+## Completion summary
+
+On success, autodocs caches the new source hashes and displays a summary:
+
+```
+✔ Done — 5 files · 23s · $0.12
+```
+
+The summary includes the number of files written, elapsed time (if reported by the subprocess), and API cost (if reported).

@@ -12,6 +12,12 @@ Autodocs exports its core functions for use as a library. Install it as a depend
 npm install @cueframe/autodocs
 ```
 
+```ts
+import { init, generate, dev, build, loadConfig } from '@cueframe/autodocs';
+```
+
+All exports are ESM-only (`"type": "module"` in `package.json`). TypeScript types are included.
+
 ## `init(cwd)`
 
 Initializes a project directory for autodocs. Creates `autodocs.config.json`, `docs/index.mdx`, and `docs/meta.json`. Adds `.autodocs/` to `.gitignore`.
@@ -22,7 +28,20 @@ import { init } from '@cueframe/autodocs';
 await init(process.cwd());
 ```
 
-Throws if no AI CLI (`claude`, `codex`, or `gemini`) is found on the PATH, or if Node.js < 18.
+**Behavior:**
+
+- Checks that Node.js >= 18 is installed
+- Scans PATH for `claude`, `codex`, and `gemini` — throws if none are found
+- Skips creating files that already exist (config, `docs/index.mdx`, `docs/meta.json`)
+- Suggests installing `tree` if not found (optional, improves codebase exploration)
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `cwd` | `string` | Project root directory |
+
+**Throws** if no AI CLI is found or Node.js version is below 18.
 
 ## `generate(options?)`
 
@@ -42,13 +61,32 @@ await generate({
 });
 ```
 
+**Pipeline:**
+
+1. Loads config from `autodocs.config.json`
+2. Hashes all source files (SHA-256, 16 hex chars) and compares to `.autodocs/cache/source-cache.json`
+3. If no files changed and `force` is false, returns early
+4. Builds a prompt from the skill file, config, existing docs context, and change context
+5. Spawns `cli-agents` with JSON streaming and displays real-time progress via ora
+6. On success, caches new file hashes
+
 ### `GenerateOptions`
+
+```ts
+interface GenerateOptions {
+  force?: boolean;  // Regenerate all docs, ignoring the hash cache
+  cli?: string;     // AI CLI to use: "claude", "codex", or "gemini"
+  cwd?: string;     // Project root directory (default: process.cwd())
+}
+```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `force` | `boolean` | `false` | Regenerate all docs, ignoring change detection |
+| `force` | `boolean` | `false` | Regenerate all docs, ignoring the hash cache |
 | `cli` | `string` | auto-detected | AI CLI to use: `"claude"`, `"codex"`, or `"gemini"` |
 | `cwd` | `string` | `process.cwd()` | Project root directory |
+
+**Throws** if config is missing, `cli-agents` binary is not found, or the subprocess fails.
 
 ## `dev(cwd?)`
 
@@ -60,11 +98,17 @@ import { dev } from '@cueframe/autodocs';
 await dev(process.cwd());
 ```
 
-**Note:** This function calls `process.exit()` when the server stops.
+**Note:** This function calls `process.exit()` when the dev server stops, using the server's exit code.
+
+**Parameters:**
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `cwd` | `string` | `process.cwd()` | Project root directory |
 
 ## `build(cwd?)`
 
-Builds the documentation site for production. Scaffolds the Fumadocs app and runs `next build`.
+Builds the documentation site for production deployment. Scaffolds the Fumadocs app and runs `next build`.
 
 ```ts
 import { build } from '@cueframe/autodocs';
@@ -74,9 +118,17 @@ await build(process.cwd());
 
 The build output is placed in `.autodocs/.next/`.
 
+**Parameters:**
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `cwd` | `string` | `process.cwd()` | Project root directory |
+
+**Throws** if the Next.js build fails.
+
 ## `loadConfig(cwd)`
 
-Loads and validates `autodocs.config.json` from the given directory. Throws if the file is missing or contains invalid values.
+Loads and validates `autodocs.config.json` from the given directory. Returns the merged config with defaults applied.
 
 ```ts
 import { loadConfig } from '@cueframe/autodocs';
@@ -86,23 +138,37 @@ console.log(config.output);  // "docs"
 console.log(config.theme);   // "black"
 ```
 
+**Validation performed:**
+
+- Checks that the config file exists
+- Parses JSON (throws on invalid JSON with a helpful message)
+- Validates all glob patterns in `include` and `exclude` using picomatch
+- Validates that `theme` is one of the 11 allowed values
+
+**Throws** if the config file is missing, JSON is invalid, globs are malformed, or the theme is unrecognized.
+
 ### `AutodocsConfig`
 
 ```ts
 interface AutodocsConfig {
-  output: string;
-  include: string[];
-  exclude: string[];
-  theme: Theme;
-  title?: string;
-  github?: { user: string; repo: string; branch?: string };
+  output: string;        // Default: "docs"
+  include: string[];     // Default: ["src/**"]
+  exclude: string[];     // Default: ["**/test*", "**/bench*", "**/target/**", "**/node_modules/**", "**/dist/**"]
+  theme: Theme;          // Default: "black"
+  title?: string;        // Default: "Documentation"
+  github?: {
+    user: string;
+    repo: string;
+    branch?: string;     // Default: "main"
+  };
+  sections?: string[];   // Default: ["guide", "api"]
   instructions?: string;
 }
 ```
 
 ## `VALID_THEMES`
 
-Array of valid theme names:
+Array of the 11 valid theme names:
 
 ```ts
 import { VALID_THEMES } from '@cueframe/autodocs';
@@ -120,3 +186,13 @@ import type { Theme } from '@cueframe/autodocs';
 
 const theme: Theme = 'ocean';
 ```
+
+## Helper functions
+
+These are also exported but are primarily for internal use:
+
+| Function | Description |
+|----------|-------------|
+| `getConfigPath(cwd)` | Returns the absolute path to `autodocs.config.json` in the given directory |
+| `createDefaultConfig()` | Returns a fresh `AutodocsConfig` with all defaults applied |
+| `writeConfig(cwd, config)` | Writes a config object to `autodocs.config.json` as formatted JSON |
