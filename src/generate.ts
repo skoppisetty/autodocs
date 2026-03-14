@@ -179,7 +179,9 @@ export async function generate(opts: GenerateOptions = {}): Promise<void> {
     'Now read the source code and generate the documentation.',
   ].filter(Boolean).join('\n');
 
-  const args = ['--json', '--skip-permissions', '--cwd', cwd, task];
+  const appendPrompt = 'RULE: Before writing ANY file to a subdirectory, you MUST create the directory first with `mkdir -p <dir>`. The Write tool does NOT create parent directories and WILL fail if the directory does not exist. Always run mkdir -p before Write when the target directory might not exist.';
+
+  const args = ['--json', '--skip-permissions', '--append-system-prompt', appendPrompt, '--cwd', cwd, task];
   if (opts.cli && VALID_CLI_NAMES.has(opts.cli)) {
     args.unshift('--cli', opts.cli);
   }
