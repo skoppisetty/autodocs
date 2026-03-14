@@ -11,5 +11,10 @@
     "**/dist/**"
   ],
   "theme": "black",
-  "sections": ["guide", "api"]
+  "title": "autodocs",
+  "sections": ["guide", "api"],
+  "github": {
+    "user": "skoppisetty",
+    "repo": "autodocs"
+  }
 }
