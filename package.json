@@ -35,6 +35,7 @@
     "typescript": "^5.7.0"
   },
   "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/skoppisetty/autodocs.git" },
   "keywords": [
     "documentation",
     "ai",
