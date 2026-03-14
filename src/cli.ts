@@ -6,6 +6,7 @@ import { init } from './init.js';
 import { generate } from './generate.js';
 import { dev } from './dev.js';
 import { build } from './build.js';
+import { deploy } from './deploy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -49,6 +50,17 @@ program
   .description('Build static site for deployment')
   .action(async () => {
     await build(process.cwd());
+  });
+
+program
+  .command('deploy')
+  .description('Build and deploy docs to Vercel')
+  .option('--preview', 'Deploy as preview (not production)')
+  .action(async (opts) => {
+    await deploy({
+      cwd: process.cwd(),
+      prod: !opts.preview,
+    });
   });
 
 program.parseAsync().catch((err) => {

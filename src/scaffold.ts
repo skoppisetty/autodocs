@@ -85,6 +85,12 @@ export function scaffoldFumadocsApp(
   fs.mkdirSync(appDir, { recursive: true });
   copyRecursive(templateDir, appDir);
 
+  const projectName = path.basename(projectCwd);
+  const pkgPath = path.join(appDir, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+  pkg.name = `${projectName}-docs`;
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+
   const docsSource = path.resolve(projectCwd, config.output);
   const docsDest = path.join(appDir, 'content', 'docs');
 
