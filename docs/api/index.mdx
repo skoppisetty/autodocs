@@ -13,7 +13,7 @@ npm install @cueframe/autodocs
 ```
 
 ```ts
-import { init, generate, dev, build, loadConfig } from '@cueframe/autodocs';
+import { init, generate, dev, build, deploy, loadConfig } from '@cueframe/autodocs';
 ```
 
 All exports are ESM-only (`"type": "module"` in `package.json`). TypeScript types are included.
@@ -125,6 +125,45 @@ The build output is placed in `.autodocs/.next/`.
 | `cwd` | `string` | `process.cwd()` | Project root directory |
 
 **Throws** if the Next.js build fails.
+
+## `deploy(options?)`
+
+Builds the docs site and deploys it to Vercel. Runs a full `build` first, then handles Vercel linking and deployment.
+
+```ts
+import { deploy } from '@cueframe/autodocs';
+
+// Production deploy (default)
+await deploy({ cwd: process.cwd() });
+
+// Preview deploy
+await deploy({ cwd: process.cwd(), prod: false });
+```
+
+**Behavior:**
+
+1. Calls `build(cwd)` to scaffold and build the Next.js site
+2. If no `.vercel/` directory exists in the project root, runs `vercel link --yes` to connect to a Vercel project
+3. Copies the `.vercel/` config from the project root into `.autodocs/.vercel/`
+4. Runs `vercel deploy --prod --yes` (or without `--prod` for preview deploys)
+
+### `DeployOptions`
+
+```ts
+interface DeployOptions {
+  cwd?: string;   // Project root directory (default: process.cwd())
+  prod?: boolean;  // Deploy as production (default: true)
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cwd` | `string` | `process.cwd()` | Project root directory |
+| `prod` | `boolean` | `true` | Deploy as production. Set to `false` for preview deployments. |
+
+**Throws** if the build fails, Vercel linking fails, or the deployment fails.
+
+**Prerequisites:** Requires the Vercel CLI (`npm install -g vercel`) and an authenticated session (`vercel login`).
 
 ## `loadConfig(cwd)`
 

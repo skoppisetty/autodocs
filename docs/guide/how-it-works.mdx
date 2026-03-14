@@ -121,6 +121,17 @@ Certain error patterns are suppressed to reduce noise during generation:
 - `"ENOENT"` — file system errors
 - `"has not been read yet"` — Write tool prerequisite warnings
 
+## Deployment
+
+The `deploy` command wraps `build` with a Vercel deployment step:
+
+1. **Build** — runs the full `build` pipeline (scaffold + `next build`)
+2. **Link** — if no `.vercel/` directory exists in the project root, runs `vercel link --yes` to connect to a Vercel project
+3. **Copy Vercel config** — copies the `.vercel/` directory from the project root into `.autodocs/.vercel/` so the deploy targets the correct project
+4. **Deploy** — runs `vercel deploy --prod --yes` (or without `--prod` for preview deployments)
+
+The Vercel link is stored in the project root (not `.autodocs/`), so it persists across scaffolding runs.
+
 ## Completion summary
 
 On success, autodocs caches the new source hashes and displays a summary:

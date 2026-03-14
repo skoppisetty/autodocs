@@ -108,6 +108,24 @@ npx autodocs build
 
 The output is placed in `.autodocs/.next/`. Deploy it with any hosting provider that supports Next.js (Vercel, Netlify, etc.).
 
+## Deploy to Vercel
+
+Build and deploy in one step:
+
+```bash
+npx autodocs deploy
+```
+
+This runs a full `build` first, then deploys to Vercel as a production deployment. On the first deploy, it runs `vercel link` to connect your project.
+
+To deploy as a preview (non-production) instead:
+
+```bash
+npx autodocs deploy --preview
+```
+
+**Prerequisites:** Install the Vercel CLI (`npm install -g vercel`) and authenticate with `vercel login` before your first deploy.
+
 ## CLI reference
 
 ```
@@ -117,4 +135,6 @@ autodocs generate --force             Regenerate all docs from scratch
 autodocs generate --cli <name>        Use a specific AI CLI (claude, codex, gemini)
 autodocs dev                          Start local preview at localhost:3000
 autodocs build                        Build static site for deployment
+autodocs deploy                       Build and deploy to Vercel (production)
+autodocs deploy --preview             Deploy as preview (non-production)
 ```
