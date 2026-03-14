@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { loadConfig, CACHE_DIR } from './config.js';
@@ -10,7 +9,7 @@ export async function build(cwd: string = process.cwd()): Promise<void> {
 
   scaffoldFumadocsApp(cwd, appDir, config);
 
-  console.log('Building static site...\n');
+  console.log('Building documentation site...\n');
 
   try {
     execSync('npx next build', {
@@ -23,10 +22,5 @@ export async function build(cwd: string = process.cwd()): Promise<void> {
     throw new Error(`Build failed: ${msg}`);
   }
 
-  const outDir = path.join(appDir, 'out');
-  if (fs.existsSync(outDir)) {
-    console.log(`\nBuild complete: ${path.relative(cwd, outDir)}`);
-  } else {
-    console.log('\nBuild complete');
-  }
+  console.log(`\nBuild complete: ${path.relative(cwd, path.join(appDir, '.next'))}`);
 }

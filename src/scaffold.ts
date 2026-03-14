@@ -47,6 +47,34 @@ function depsChanged(appDir: string): boolean {
   return pkgMtime > lockMtime;
 }
 
+function generateLayoutShared(config: AutodocsConfig): string {
+  const title = config.title || 'Documentation';
+  const gh = config.github;
+  const githubLine = gh
+    ? `    githubUrl: \`https://github.com/\${gitConfig.user}/\${gitConfig.repo}\`,`
+    : '';
+
+  return `import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+
+export const siteName = '${title}';
+
+export const gitConfig = {
+  user: '${gh?.user || ''}',
+  repo: '${gh?.repo || ''}',
+  branch: '${gh?.branch || 'main'}',
+};
+
+export function baseOptions(): BaseLayoutProps {
+  return {
+    nav: {
+      title: siteName,
+    },
+${githubLine}
+  };
+}
+`;
+}
+
 export function scaffoldFumadocsApp(
   projectCwd: string,
   appDir: string,
@@ -60,24 +88,8 @@ export function scaffoldFumadocsApp(
   const docsSource = path.resolve(projectCwd, config.output);
   const docsDest = path.join(appDir, 'content', 'docs');
 
-  fs.mkdirSync(path.dirname(docsDest), { recursive: true });
-
-  try {
-    const existing = fs.lstatSync(docsDest);
-    if (existing.isSymbolicLink()) {
-      fs.unlinkSync(docsDest);
-    } else {
-      fs.rmSync(docsDest, { recursive: true, force: true });
-    }
-  } catch {
-    // docsDest doesn't exist yet — nothing to remove
-  }
-
-  try {
-    fs.symlinkSync(docsSource, docsDest, 'dir');
-  } catch {
-    copyRecursive(docsSource, docsDest);
-  }
+  fs.rmSync(docsDest, { recursive: true, force: true });
+  copyRecursive(docsSource, docsDest);
 
   const globalCss = path.join(appDir, 'app', 'global.css');
   fs.writeFileSync(globalCss, [
@@ -86,6 +98,10 @@ export function scaffoldFumadocsApp(
     `@import 'fumadocs-ui/css/preset.css';`,
     '',
   ].join('\n'));
+
+  const layoutShared = path.join(appDir, 'lib', 'layout.shared.tsx');
+  fs.mkdirSync(path.dirname(layoutShared), { recursive: true });
+  fs.writeFileSync(layoutShared, generateLayoutShared(config));
 
   const needsInstall = depsChanged(appDir);
   if (needsInstall) {

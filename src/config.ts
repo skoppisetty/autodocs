@@ -18,6 +18,8 @@ export interface AutodocsConfig {
   include: string[];
   exclude: string[];
   theme: Theme;
+  title?: string;
+  github?: { user: string; repo: string; branch?: string };
   instructions?: string;
 }
 
