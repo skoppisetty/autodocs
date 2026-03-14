@@ -1,0 +1,85 @@
+---
+title: Configuration
+description: Configure autodocs via autodocs.config.json
+generated: true
+---
+
+# Configuration
+
+Autodocs is configured via `autodocs.config.json` in your project root. Run `npx autodocs init` to create it with defaults.
+
+## Example
+
+```json
+{
+  "output": "docs",
+  "include": ["src/**"],
+  "exclude": ["**/test*", "**/node_modules/**", "**/dist/**"],
+  "theme": "black",
+  "title": "My Project",
+  "github": {
+    "user": "your-username",
+    "repo": "your-repo"
+  },
+  "instructions": "Focus on the public API, skip internal utilities"
+}
+```
+
+## Options
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `output` | `string` | `"docs"` | Directory where generated MDX files are written |
+| `include` | `string[]` | `["src/**"]` | Glob patterns for source files to document |
+| `exclude` | `string[]` | `["**/test*", "**/bench*", "**/target/**", "**/node_modules/**", "**/dist/**"]` | Glob patterns to skip |
+| `theme` | `string` | `"black"` | Fumadocs color theme |
+| `title` | `string` | `"Documentation"` | Site title shown in the nav bar and OG images |
+| `github` | `object` | — | GitHub repo for header link |
+| `instructions` | `string` | — | Additional instructions passed to the AI during generation |
+
+## Themes
+
+Autodocs supports all Fumadocs built-in themes:
+
+`black` · `neutral` · `vitepress` · `dusk` · `catppuccin` · `ocean` · `purple` · `solar` · `emerald` · `ruby` · `aspen`
+
+Set the `theme` field in your config to any of these values. The theme controls the color palette of the generated documentation site.
+
+## Include and exclude patterns
+
+The `include` and `exclude` fields use [glob syntax](https://github.com/micromatch/picomatch) (powered by picomatch). The AI will only read and document source files that match `include` and don't match `exclude`.
+
+Common patterns:
+
+```json
+{
+  "include": ["src/**", "lib/**"],
+  "exclude": ["**/*.test.*", "**/__tests__/**", "**/node_modules/**"]
+}
+```
+
+## GitHub integration
+
+When `github` is set, the docs site displays a GitHub link in the header:
+
+```json
+{
+  "github": {
+    "user": "your-username",
+    "repo": "your-repo",
+    "branch": "main"
+  }
+}
+```
+
+The `branch` field defaults to `"main"` if omitted.
+
+## Custom AI instructions
+
+The `instructions` field lets you give extra guidance to the AI when generating documentation. This is appended to the generation prompt:
+
+```json
+{
+  "instructions": "Write docs in a tutorial style. Include runnable examples for every public function."
+}
+```

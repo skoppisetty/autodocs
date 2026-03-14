@@ -1,0 +1,60 @@
+---
+title: How It Works
+description: Architecture and internals of the autodocs generation pipeline
+generated: true
+---
+
+# How It Works
+
+Autodocs orchestrates three layers: an AI CLI for code understanding, a generation pipeline for change tracking, and a Fumadocs app for rendering.
+
+## Generation pipeline
+
+When you run `npx autodocs generate`, the following happens:
+
+1. **Load config** — reads `autodocs.config.json` and validates the glob patterns and theme
+2. **Detect changes** — checks `.autodocs/last-gen-commit` for the git SHA of the last generation run, then uses `git diff` to find source files that changed since then
+3. **Build the prompt** — assembles a skill prompt (from `.autodocs/skill.md` or the built-in `SKILL.md`) along with the project root, config summary, and change context
+4. **Invoke the AI CLI** — runs the prompt through [`cli-agents`](https://github.com/skoppisetty/cli-agents-rs), which provides a unified interface to Claude Code, Codex, or Gemini CLI
+5. **Stream progress** — parses JSON events from the subprocess (`thinking_delta`, `tool_start`, `tool_end`, `done`) and displays real-time progress with a spinner
+6. **Save checkpoint** — on success, writes the current `HEAD` commit SHA to `.autodocs/last-gen-commit`
+
+## Incremental updates
+
+Autodocs tracks what has changed since the last generation by comparing git commits:
+
+- The SHA of `HEAD` at generation time is saved to `.autodocs/last-gen-commit`
+- On the next run, `git diff --name-only <saved-sha> HEAD` finds committed changes, and `git diff --name-only HEAD` finds uncommitted changes
+- Changed files are filtered through the `include`/`exclude` glob patterns
+- Only matching files are sent to the AI with instructions to update affected doc pages
+
+If no source files have changed, generation is skipped entirely. Use `--force` to bypass this check.
+
+## The `.autodocs/` directory
+
+The `.autodocs/` directory (added to `.gitignore` by `init`) serves two purposes:
+
+- **Build cache** — `last-gen-commit` tracks the git SHA for incremental generation
+- **Fumadocs app** — when you run `dev` or `build`, a full Fumadocs/Next.js app is scaffolded here from the built-in template
+
+The scaffolding process:
+
+1. Copies the Fumadocs template from `templates/fumadocs/` in the autodocs package
+2. Copies your `docs/` MDX files into `.autodocs/content/docs/`
+3. Generates `app/global.css` with your selected theme
+4. Generates `lib/layout.shared.tsx` with your title and GitHub config
+5. Runs `npm install` if dependencies have changed, or `npx fumadocs-mdx` to regenerate the content layer
+
+## CLI agents
+
+Autodocs uses the [`@cueframe/cli-agents`](https://github.com/skoppisetty/cli-agents-rs) package to invoke AI CLIs. This binary abstracts over the differences between Claude Code, Codex, and Gemini CLI, providing a unified JSON streaming interface.
+
+The binary is resolved in this order:
+
+1. `AUTODOCS_CLI_AGENTS_PATH` environment variable (if set)
+2. The `@cueframe/cli-agents` npm package (`binaryPath()` export)
+3. `cli-agents` on the system PATH (for cargo-install users)
+
+## Customizing the skill prompt
+
+The prompt sent to the AI CLI is called the "skill." By default, autodocs uses its built-in `SKILL.md`. You can override it by placing a custom file at `.autodocs/skill.md` — this will be used instead of the built-in version.

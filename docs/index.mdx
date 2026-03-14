@@ -1,0 +1,52 @@
+---
+title: autodocs
+description: AI-powered documentation generator — no API keys required
+generated: true
+---
+
+# autodocs
+
+AI-powered documentation generator. Reads your source code, writes MDX docs, and serves them with a beautiful docs site — no API keys required.
+
+Uses the AI CLI tools you already have installed (Claude Code, Codex, or Gemini CLI) via your existing subscription.
+
+## Quick start
+
+```bash
+npx @cueframe/autodocs init
+npx @cueframe/autodocs generate
+npx @cueframe/autodocs dev
+```
+
+1. **`init`** — creates `autodocs.config.json` and a `docs/` directory
+2. **`generate`** — spawns your AI CLI to read source code and write MDX documentation
+3. **`dev`** — starts a local preview at `localhost:3000`
+4. **`build`** — builds the docs site for deployment
+
+## Features
+
+- **Incremental generation** — only regenerates docs when source files change (tracked via git)
+- **Full-text search** — built-in search powered by Fumadocs
+- **Dark mode** — automatic light/dark theme switching
+- **OG images** — auto-generated social preview images for every page
+- **LLM routes** — `/llms.txt` and `/llms-full.txt` for AI consumption
+- **11 themes** — choose from Fumadocs built-in themes
+- **Any AI CLI** — works with Claude Code, Codex, or Gemini CLI
+
+## Prerequisites
+
+At least one AI CLI must be installed:
+
+| CLI | Install |
+|-----|---------|
+| Claude Code | `npm install -g @anthropic-ai/claude-code` |
+| Codex | `npm install -g @openai/codex` |
+| Gemini CLI | `npm install -g @google/gemini-cli` |
+
+Node.js 18 or later is required.
+
+## Next steps
+
+- [Getting started](/docs/guide/getting-started) — installation and first run
+- [Configuration](/docs/guide/configuration) — customize output, themes, and patterns
+- [Programmatic API](/docs/api) — use autodocs as a library

@@ -1,0 +1,14 @@
+{
+  "output": "docs",
+  "include": [
+    "src/**"
+  ],
+  "exclude": [
+    "**/test*",
+    "**/bench*",
+    "**/target/**",
+    "**/node_modules/**",
+    "**/dist/**"
+  ],
+  "theme": "black"
+}

@@ -1,0 +1,92 @@
+---
+title: Getting Started
+description: Install autodocs and generate your first documentation site
+generated: true
+---
+
+# Getting Started
+
+## Installation
+
+Install autodocs as a dev dependency or use it directly with `npx`:
+
+```bash
+npm install --save-dev @cueframe/autodocs
+```
+
+You also need at least one AI CLI installed globally:
+
+```bash
+# Pick one (or more):
+npm install -g @anthropic-ai/claude-code
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
+```
+
+Autodocs uses these CLIs through your existing subscription — no separate API keys needed.
+
+## Initialize your project
+
+Run `init` to create the configuration file and starter docs directory:
+
+```bash
+npx autodocs init
+```
+
+This will:
+
+1. Verify Node.js >= 18 is installed
+2. Check that at least one AI CLI (`claude`, `codex`, or `gemini`) is available on your PATH
+3. Create `autodocs.config.json` with default settings
+4. Create a `docs/` directory with a starter `index.mdx` and `meta.json`
+5. Add `.autodocs/` to your `.gitignore` (the build cache directory)
+
+If you already have a config file or `docs/index.mdx`, they won't be overwritten.
+
+## Generate documentation
+
+Run the `generate` command to have your AI CLI read your source code and produce MDX documentation:
+
+```bash
+npx autodocs generate
+```
+
+The AI reads your source files (matching the `include`/`exclude` patterns in your config), then writes MDX files into the `docs/` directory.
+
+### Force regeneration
+
+By default, autodocs tracks changes via git and only regenerates when source files have changed since the last run. To regenerate everything from scratch:
+
+```bash
+npx autodocs generate --force
+```
+
+### Choose a specific CLI
+
+If you have multiple AI CLIs installed, you can pick which one to use:
+
+```bash
+npx autodocs generate --cli claude
+npx autodocs generate --cli codex
+npx autodocs generate --cli gemini
+```
+
+## Preview locally
+
+Start a local dev server to preview your docs:
+
+```bash
+npx autodocs dev
+```
+
+This scaffolds a [Fumadocs](https://fumadocs.dev) app in `.autodocs/`, installs its dependencies (first run only), and starts Next.js at `http://localhost:3000`.
+
+## Build for deployment
+
+Build a static site for production:
+
+```bash
+npx autodocs build
+```
+
+The output is placed in `.autodocs/.next/`. You can deploy this with any static hosting provider that supports Next.js.

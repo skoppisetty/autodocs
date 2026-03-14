@@ -1,0 +1,122 @@
+---
+title: Programmatic API
+description: Use autodocs as a library in your own scripts and tools
+generated: true
+---
+
+# Programmatic API
+
+Autodocs exports its core functions for use as a library. Install it as a dependency:
+
+```bash
+npm install @cueframe/autodocs
+```
+
+## `init(cwd)`
+
+Initializes a project directory for autodocs. Creates `autodocs.config.json`, `docs/index.mdx`, and `docs/meta.json`. Adds `.autodocs/` to `.gitignore`.
+
+```ts
+import { init } from '@cueframe/autodocs';
+
+await init(process.cwd());
+```
+
+Throws if no AI CLI (`claude`, `codex`, or `gemini`) is found on the PATH, or if Node.js < 18.
+
+## `generate(options?)`
+
+Generates documentation by invoking an AI CLI to read source code and write MDX files.
+
+```ts
+import { generate } from '@cueframe/autodocs';
+
+// Default: incremental generation using the auto-detected CLI
+await generate();
+
+// Force regeneration with a specific CLI
+await generate({
+  force: true,
+  cli: 'claude',
+  cwd: '/path/to/project',
+});
+```
+
+### `GenerateOptions`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `force` | `boolean` | `false` | Regenerate all docs, ignoring change detection |
+| `cli` | `string` | auto-detected | AI CLI to use: `"claude"`, `"codex"`, or `"gemini"` |
+| `cwd` | `string` | `process.cwd()` | Project root directory |
+
+## `dev(cwd?)`
+
+Starts a local Fumadocs dev server at `http://localhost:3000`. Scaffolds the Fumadocs app in `.autodocs/` and runs `next dev`.
+
+```ts
+import { dev } from '@cueframe/autodocs';
+
+await dev(process.cwd());
+```
+
+**Note:** This function calls `process.exit()` when the server stops.
+
+## `build(cwd?)`
+
+Builds the documentation site for production. Scaffolds the Fumadocs app and runs `next build`.
+
+```ts
+import { build } from '@cueframe/autodocs';
+
+await build(process.cwd());
+```
+
+The build output is placed in `.autodocs/.next/`.
+
+## `loadConfig(cwd)`
+
+Loads and validates `autodocs.config.json` from the given directory. Throws if the file is missing or contains invalid values.
+
+```ts
+import { loadConfig } from '@cueframe/autodocs';
+
+const config = loadConfig(process.cwd());
+console.log(config.output);  // "docs"
+console.log(config.theme);   // "black"
+```
+
+### `AutodocsConfig`
+
+```ts
+interface AutodocsConfig {
+  output: string;
+  include: string[];
+  exclude: string[];
+  theme: Theme;
+  title?: string;
+  github?: { user: string; repo: string; branch?: string };
+  instructions?: string;
+}
+```
+
+## `VALID_THEMES`
+
+Array of valid theme names:
+
+```ts
+import { VALID_THEMES } from '@cueframe/autodocs';
+
+// ['black', 'neutral', 'vitepress', 'dusk', 'catppuccin',
+//  'ocean', 'purple', 'solar', 'emerald', 'ruby', 'aspen']
+```
+
+## `Theme`
+
+Type alias for valid theme strings:
+
+```ts
+import type { Theme } from '@cueframe/autodocs';
+
+const theme: Theme = 'ocean';
+```

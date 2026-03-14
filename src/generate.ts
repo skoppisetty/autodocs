@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import Module from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { execa } from 'execa';
 import picomatch from 'picomatch';
@@ -53,6 +54,7 @@ function findCliAgentsBinary(): string {
   }
 
   try {
+    const require = Module.createRequire(import.meta.url);
     const { binaryPath } = require('@cueframe/cli-agents') as { binaryPath: () => string };
     return binaryPath();
   } catch {
