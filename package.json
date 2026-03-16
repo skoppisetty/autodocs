@@ -1,6 +1,6 @@
 {
   "name": "@cueframe/autodocs",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "AI-powered documentation generator using local CLI tools — no API keys required",
   "type": "module",
   "bin": {
