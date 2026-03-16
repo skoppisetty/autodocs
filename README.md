@@ -8,12 +8,24 @@ AI-powered documentation generator. Reads your source code, writes MDX docs, and
 
 Uses the AI CLI tools you already have installed (Claude Code, Codex, or Gemini CLI) via your existing subscription.
 
+## Install
+
+```bash
+npm install -g @cueframe/autodocs
+```
+
+Or run directly with npx:
+
+```bash
+npx @cueframe/autodocs
+```
+
 ## Quick start
 
 ```bash
-npx @cueframe/autodocs init
-npx @cueframe/autodocs generate
-npx @cueframe/autodocs dev
+autodocs init
+autodocs generate
+autodocs dev
 ```
 
 ## How it works
