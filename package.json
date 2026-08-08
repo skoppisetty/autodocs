@@ -28,7 +28,7 @@
   "dependencies": {
     "@cueframe/cli-agents": "^0.2.1",
     "commander": "^15.0.0",
-    "execa": "^9.6.1",
+    "execa": "^10.0.1",
     "ora": "^9.3.0",
     "picomatch": "^4.0.3"
   },
